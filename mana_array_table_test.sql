@@ -61,7 +61,7 @@ WHERE '{B, G, W, U}' && manacost;
 -- Checking for ANY uncolored mana is a bit different - can't use 0-9 as a set because it's a string here... 
 SELECT *
 FROM testing_mana
-WHERE manacost && '{1000000}';
+WHERE manacost && '{0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16}';
 
 
 SELECT v AS value_repeated,array_agg(uid) AS is_repeated_on FROM 
