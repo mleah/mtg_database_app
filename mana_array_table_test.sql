@@ -119,7 +119,7 @@ SELECT CASE WHEN CAST(raw_cost AS integer) < 10 THEN CAST(raw_cost AS integer)
 	END AS COST
 FROM (SELECT unnest(manacost) AS raw_cost from testing_mana) AS a;
 
-
+-- Casting characters as integers?  Is there a way to reject characters?  Can you check type of a thing?
 
 
 SELECT CASE WHEN raw_cost ~ '^[0-9]+$' THEN CAST(raw_cost AS integer)
@@ -127,3 +127,6 @@ SELECT CASE WHEN raw_cost ~ '^[0-9]+$' THEN CAST(raw_cost AS integer)
 	END AS COST
 FROM (SELECT unnest(manacost) AS raw_cost from testing_mana) AS a
 ORDER BY cost DESC;
+
+SELECT pg_typeof(raw_cost), raw_cost
+FROM (SELECT unnest(manacost) AS raw_cost from testing_mana) AS a;
