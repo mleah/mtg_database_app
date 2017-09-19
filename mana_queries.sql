@@ -3,10 +3,16 @@
 
 select * from players;
 
-select manacost, name from cards_decks_xref cd
-  INNER JOIN cards c ON c.uid = cd.card_id
-WHERE deck_id = 1
-AND is_sidedeck = 'f';
+select * from cards_decks_xref;
+
+
+SELECT name, manacost, d.deck_id, p.player_name, cd.is_sidedeck FROM cards c
+INNER JOIN cards_decks_xref cd ON c.uid = cd.deck_id
+INNER JOIN decks d ON d.deck_id = cd.deck_id
+INNER JOIN players p ON d.deck_id = ANY(p.deck_id)
+WHERE p.player_name = 'Mariah'  -- This would be input/dynamic
+  AND d.deck_name = 'TEST'  -- THis would be input/dynamic
+  AND cd.is_sidedeck IS FALSE; -- This could be adapted to be t/f/both
 
 SELECT uid,
   name,
@@ -72,7 +78,7 @@ FROM split_mana;
 --Same issue as before, does EVERY card in the cards deck
 --Hash Join  (cost=697936.45..777891.82 rows=5728 width=26) (actual time=109.176..201.366 rows=38 loops=1)
 
-EXPLAIN ANALYZE WITH split_mana AS
+WITH split_mana AS
 (
   SELECT uid,
     SUM(CASE WHEN raw_cost ~ '^[0-9]+$' THEN CAST(raw_cost AS integer)
@@ -105,7 +111,7 @@ WHERE p.player_name = 'Mariah'  -- This would be input/dynamic
 --Same issue as before, does EVERY card in the cards deck
 --Hash Join  (cost=698020.61..777975.98 rows=5728 width=26) (actual time=88.692..152.907 rows=61 loops=1)
 
-EXPLAIN ANALYZE WITH split_mana AS
+WITH split_mana AS
 (
   SELECT uid,
     SUM(CASE WHEN raw_cost ~ '^[0-9]+$' THEN CAST(raw_cost AS integer)
@@ -137,40 +143,102 @@ WHERE p.player_name = 'Mariah'  -- This would be input/dynamic
 --Take TWO
 
 --This one returns every card that has a mana cost that is NOT NULL (including duplicate cards)
--- ... this isn't working as expected  -___-
+--Nested Loop  (cost=3010.93..3034.16 rows=1 width=44) (actual time=14.627..14.681 rows=38 loops=1)    WOW SO MUCH IMPROVEMENT
 
 WITH individual_card_cmc AS
 (
- SELECT uid,
+    SELECT
+      uid,
       name,
-    SUM(CASE WHEN raw_cost ~ '^[0-9]+$' THEN CAST(raw_cost AS integer)
-	    WHEN raw_cost ~ '[a-zA-Z]' THEN 1
-	    END) AS cmc
-    FROM
-    ( SELECT
-        uid,
-        unnest(manacost) AS raw_cost,
-        name
-      FROM cards c
-      INNER JOIN cards_decks_xref cd ON c.uid = cd.card_id
-      INNER JOIN decks d ON d.deck_id = cd.deck_id
-      INNER JOIN players p ON d.deck_id = ANY(p.deck_id)
-      WHERE p.player_name = 'Mariah'  -- This would be input/dynamic
-        AND d.deck_name = 'TEST'  -- THis would be input/dynamic
-        AND cd.is_sidedeck IS FALSE -- This could be adapted to be t/f/both
-    ) AS unnested_mana
-      GROUP BY unnested_mana.uid, unnested_mana.name
+      SUM(CASE WHEN raw_cost ~ '^[0-9]+$'
+        THEN CAST(raw_cost AS INTEGER)
+          WHEN raw_cost ~ '[a-zA-Z]'
+            THEN 1
+          END) AS cmc
+    FROM (SELECT
+            uid,
+            unnest(manacost) AS raw_cost,
+            name
+          FROM cards c
+          WHERE EXISTS(
+              SELECT 1
+              FROM cards_decks_xref cd
+                INNER JOIN decks d ON d.deck_id = cd.deck_id
+                INNER JOIN players p ON d.deck_id = ANY (p.deck_id)
+              WHERE c.uid = cd.card_id
+                    AND p.player_name = 'Mariah'  -- This would be input/dynamic
+                    AND d.deck_name = 'TEST'  -- THis would be input/dynamic
+                    AND cd.is_sidedeck IS FALSE -- This could be adapted to be t/f/both
+          )
+         ) AS unnested_mana
+    GROUP BY unnested_mana.uid, unnested_mana.name
 )
-SELECT  ic.uid,
-        ic.name,
-        ic.cmc
-  FROM individual_card_cmc ic
-INNER JOIN cards_decks_xref cd ON ic.uid = cd.card_id
+SELECT
+  cd.card_id,
+  ic.name,
+  ic.cmc
+FROM individual_card_cmc ic
+  INNER JOIN cards_decks_xref cd ON ic.uid = cd.card_id
+  INNER JOIN decks d ON d.deck_id = cd.deck_id
+  INNER JOIN players p ON d.deck_id = ANY (p.deck_id)
+WHERE p.player_name = 'Mariah'  -- This would be input/dynamic
+      AND d.deck_name = 'TEST'  -- THis would be input/dynamic
+      AND cd.is_sidedeck IS FALSE; -- This could be adapted to be t/f/both
+
+
+
+
+--This one returns every card that has a manacost or a manacost of NULL (including duplicate cards)
+-- Nested Loop  (cost=3010.93..3034.16 rows=1 width=44) (actual time=11.244..11.380 rows=61 loops=1)
+
+WITH individual_card_cmc AS
+(
+  SELECT
+      uid,
+      name,
+      SUM(CASE WHEN raw_cost ~ '^[0-9]+$'
+        THEN CAST(raw_cost AS INTEGER)
+          WHEN raw_cost ~ '[a-zA-Z]'
+            THEN 1
+          END) AS cmc
+    FROM (SELECT
+            uid,
+            name,
+            CASE WHEN array_length(manacost, 1) IS NOT NULL THEN unnest(manacost)
+      END AS raw_cost
+          FROM cards c
+          WHERE EXISTS(
+              SELECT 1
+              FROM cards_decks_xref cd
+                INNER JOIN decks d ON d.deck_id = cd.deck_id
+                INNER JOIN players p ON d.deck_id = ANY (p.deck_id)
+              WHERE c.uid = cd.card_id
+                    AND p.player_name = 'Mariah'  -- This would be input/dynamic
+                    AND d.deck_name = 'TEST'  -- THis would be input/dynamic
+                    AND cd.is_sidedeck IS FALSE -- This could be adapted to be t/f/both
+          )
+         ) AS unnested_mana
+    GROUP BY unnested_mana.uid, unnested_mana.name
+)
+SELECT
+  cd.card_id,
+  ic.name,
+  ic.cmc
+FROM individual_card_cmc ic
+  INNER JOIN cards_decks_xref cd ON ic.uid = cd.card_id
 INNER JOIN decks d ON d.deck_id = cd.deck_id
 INNER JOIN players p ON d.deck_id = ANY(p.deck_id)
-  WHERE p.player_name = 'Mariah'  -- This would be input/dynamic
-    AND d.deck_name = 'TEST'  -- THis would be input/dynamic
-    AND cd.is_sidedeck IS FALSE -- This could be adapted to be t/f/both
-GROUP BY ic.uid, ic.name, ic.cmc;
+WHERE p.player_name = 'Mariah'  -- This would be input/dynamic
+  AND d.deck_name = 'TEST'  -- THis would be input/dynamic
+  AND cd.is_sidedeck IS FALSE; -- This could be adapted to be t/f/both
 
+
+--WHERE EXISTS
+
+
+SELECT uid, unnest(manacost) AS raw_cost
+FROM cards c
+WHERE EXISTS (
+  SELECT 1 FROM cards_decks_xref WHERE c.uid = cd.card_id
+)
 
