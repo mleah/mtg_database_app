@@ -1,0 +1,21 @@
+{
+  "name": "mtg-database-app",
+  "version": "1.0.0",
+  "description": "Basic app for testing MTG database",
+  "main": "index.js",
+  "scripts": {},
+  "keywords": [
+    "database"
+  ],
+  "author": "Mariah Hanson",
+  "dependencies": {
+    "hapi": "^15.1.1",
+    "hapi-node-postgres": "^4.0.1",
+    "hapi-swagger": "^7.8.1",
+    "inert": "^4.2.1",
+    "joi": "^9.2.0",
+    "pg": "^6.1.0",
+    "pg-native": "^1.10.0",
+    "vision": "^4.1.1"
+  }
+}
