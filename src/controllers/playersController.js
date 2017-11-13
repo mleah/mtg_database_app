@@ -1,6 +1,6 @@
 const getAllPlayersSQL = `SELECT player_id, player_name FROM players`;
 
-const getPlayerByIdSQL = `SELECT player_id, player_name FROM players`;
+const getPlayerByIdSQL = `SELECT player_id, player_name FROM players WHERE player_id = $1`;
 
 const addNewPlayerSQL = `
     INSERT INTO players (player_name) 
