@@ -420,6 +420,8 @@ CREATE TABLE cards_decks_xref
 
 --DECK TABLE
 
+--DROP TABLE decks;
+
 CREATE TABLE decks
 (
   deck_id SERIAL,
@@ -427,11 +429,12 @@ CREATE TABLE decks
   format_id integer
 );
 
+--DROP TABLE players;
+
 CREATE TABLE players
 (
   player_id SERIAL,
-  player_name varchar,
-  deck_id integer[]
+  player_name varchar
 );
 
 --ADD IN SOME TESTING VALUES FOR NOW
@@ -444,6 +447,11 @@ VALUES ('DREDGE!');
 
 
 
+CREATE TABLE players_decks_xref
+(
+  player_id integer,
+  deck_id integer
+);
 
 
 

@@ -61,7 +61,7 @@ server.route({
         },
         description: 'Get all cards',
         notes: 'Returns the list of all cards and their information',
-        tags: ['api']
+        tags: ['api', 'cards']
     }
 });
 
@@ -84,7 +84,7 @@ server.route({
         },
         description: 'Get a card by uid',
         notes: 'Returns a single card from the supplied uid',
-        tags: ['api'],
+        tags: ['api', 'cards'],
         validate: {
             params: {
                 id : Joi.number()
@@ -123,7 +123,7 @@ server.route({
         },
         description: 'Get all sets',
         notes: 'Returns the list of all sets and their information and the cards within each set',
-        tags: ['api']
+        tags: ['api', 'sets']
     }
 });
 
@@ -157,7 +157,7 @@ server.route({
         },
         description: 'Get a set by uid',
         notes: 'Returns a single set and all cards in the set based on the set uid',
-        tags: ['api'],
+        tags: ['api', 'sets'],
         validate: {
             params: {
                 id : Joi.number()
@@ -191,12 +191,11 @@ server.route({
         handler: getAllPlayers,
         description: 'Get all players',
         notes: 'Returns all players',
-        tags: ['api'],
+        tags: ['api', 'players'],
     }
 });
 
 //Will need to refactor later for when taking in a payload from the frontend
-//Should eventually just be at the "players" endpoint
 server.route({
     method: 'POST',
     path: '/players',
@@ -214,7 +213,7 @@ server.route({
         },
         description: 'Create a new player',
         notes: 'Creates a new player and then returns all player information',
-        tags: ['api'],
+        tags: ['api', 'players'],
         validate: {
             payload: Joi.object({
                 name : Joi.string()
@@ -248,7 +247,7 @@ server.route({
         },
         description: 'Get a player by id',
         notes: 'Returns the player',
-        tags: ['api'],
+        tags: ['api', 'players'],
         validate: {
             params: Joi.object({
                 id : Joi.number()
@@ -276,7 +275,7 @@ server.route({
         },
         description: 'Delete a player by player_id',
         notes: 'Deletes a player by player_id and returns a list of all players',
-        tags: ['api'],
+        tags: ['api', 'players'],
         validate: {
             params: Joi.object({
                 id : Joi.number()
@@ -289,7 +288,6 @@ server.route({
 
 
 //Will need to refactor later for when taking in a payload from the frontend
-//Should eventually just be at the "players/id" endpoint
 server.route({
     method: 'PUT',
     path: '/players/{id}',
@@ -308,7 +306,7 @@ server.route({
         },
         description: 'Update an existing players name',
         notes: 'Updates an existing players name and returns a list of all players',
-        tags: ['api'],
+        tags: ['api', 'players'],
         validate: {
             params: Joi.object({
                 id: Joi.number()
@@ -324,28 +322,30 @@ server.route({
     }
 });
 
-
-//Need SQL for these, this is just a general outline for what I think the endpoints should be....
-
-
 server.route({
     method: 'GET',
-    path: '/players/{id}/decks',
+    path: '/players/{id}/deck',
     config: {
         handler: function (request, reply) {
-            const id = encodeURIComponent(request.params.id)
+            const id = encodeURIComponent(request.params.id);
 
-            request.pg.client.query(``, [id], function(err, _) {
+            request.pg.client.query(players.getPlayersDecksSQL, [id], function(err, result) {
                 if(err) {
                     console.log(err);
                 } else {
-                    reply(`Here's the id passed in: ${id}`)
+                    const decks = result.rows.map( (deck) => {
+                        return {
+                            deck_name: deck.deck_name,
+                            deck_id: deck.deck_id
+                        }
+                    });
+                    reply({ 'decks' : decks });
                 }
             });
         },
         description: 'Get all decks associated with a single player',
         notes: 'Returns a list of decks associated with a single player by player id',
-        tags: ['api'],
+        tags: ['api', 'players'],
         validate: {
             params: Joi.object({
                 id: Joi.number()
@@ -356,30 +356,28 @@ server.route({
     }
 });
 
-
-//For cards, should it be by id?  by name?
-//Name isn't unique...
-
 server.route({
     method: 'POST',
-    path: '/players/{id}/deck/{deck_id}',
+    path: '/players/{id}/deck',
     config: {
         handler: function (request, reply) {
+
+            // Need to handle the escaped characters for the deckName....
             const id = encodeURIComponent(request.params.id);
             const deckName = encodeURIComponent(request.payload.deckName);
-            const cards = encodeURIComponent(request.payload.cards);
+            const cardIDs = request.payload.card_ids;
 
-            request.pg.client.query(``, [id], function(err, _) {
+            request.pg.client.query(players.addNewPlayerDeckSQL, [id, deckName, cardIDs], function(err, _) {
                 if(err) {
                     console.log(err);
                 } else {
-                    reply(`Here's the id, deckName, cards passed in: ${id} ${deckName} ${cards}`)
+                    reply(`Here's the id, deckName, cards passed in: ${id}   ${deckName}   ${cardIDs}`)
                 }
             });
         },
         description: 'Create a new deck for a single player',
-        notes: 'Creates a new deck for a single player by id',
-        tags: ['api'],
+        notes: 'Creates a new deck for a single player by player_id',
+        tags: ['api', 'players'],
         validate: {
             params: Joi.object({
                 id: Joi.number()
@@ -390,7 +388,7 @@ server.route({
                 deckName : Joi.string()
                     .required()
                     .description('The name for the new deck'),
-                cards : Joi.array()
+                card_ids : Joi.array()
                     .description('An array of card ids in the deck')
             })
         }
@@ -405,20 +403,22 @@ server.route({
     config: {
         handler: function (request, reply) {
             const id = encodeURIComponent(request.params.id);
+            const deckID = encodeURIComponent(request.params.deck_id);
             const deckName = encodeURIComponent(request.payload.deckName);
-            const cards = encodeURIComponent(request.payload.cards);
+            const cardIDs = encodeURIComponent(request.payload.card_ids);
+
 
             request.pg.client.query(``, [id], function(err, _) {
                 if(err) {
                     console.log(err);
                 } else {
-                    reply(`Here's the id, deckName, cards passed in: ${id} ${deckName} ${cards}`)
+                    reply(`Here's the id, deckName, cards passed in: ${id} ${deckName} ${cardIDs} ${deckID}`)
                 }
             });
         },
-        description: 'Update a deck for a single player',
+        description: 'IN PROGRESS Update a deck for a single player',
         notes: 'Creates a new deck for a single player by id',
-        tags: ['api'],
+        tags: ['api', 'players'],
         validate: {
             params: Joi.object({
                 id: Joi.number()
@@ -428,8 +428,40 @@ server.route({
             payload: Joi.object({
                 deckName : Joi.string()
                     .description('The updated name for the deck'),
-                cards : Joi.array()
+                cards_ids : Joi.array()
                     .description('An array of card ids in the deck')
+            })
+        }
+    }
+});
+
+server.route({
+    method: 'DELETE',
+    path: '/players/{id}/deck/{deck_id}',
+    config: {
+        handler: function (request, reply) {
+            const id = encodeURIComponent(request.params.id);
+            const deckID = encodeURIComponent(request.params.deck_id);
+
+            request.pg.client.query(``, [id], function(err, _) {
+                if(err) {
+                    console.log(err);
+                } else {
+                    reply(`Here's the id, deckid: ${id} ${deckID}`)
+                }
+            });
+        },
+        description: 'IN PROGRESS Delete a deck for a player',
+        notes: 'Deletes a deck for a single player by id',
+        tags: ['api','players'],
+        validate: {
+            params: Joi.object({
+                id: Joi.number()
+                    .required()
+                    .description('The uid for the player'),
+                deck_id:  Joi.number()
+                    .required()
+                    .description('The uid for the deck'),
             })
         }
     }
