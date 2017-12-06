@@ -68,12 +68,12 @@ server.route({
 
 server.route({
     method: 'GET',
-    path: '/cards/{id}',
+    path: '/cards/{card_id}',
     config: {
         handler: function(request, reply) {
-            let id = encodeURIComponent(request.params.id);
+            let cardID = encodeURIComponent(request.params.card_id);
 
-            request.pg.client.query(cards.cardsByIdSQL, [id], function(err, result) {
+            request.pg.client.query(cards.cardsByIdSQL, [cardID], function(err, result) {
                 if(err) {
                     console.log(err);
                 } else {
@@ -88,7 +88,7 @@ server.route({
         tags: ['api', 'cards'],
         validate: {
             params: {
-                id : Joi.number()
+                card_id : Joi.number()
                     .required()
                     .description('the uid for card'),
             }
@@ -130,12 +130,12 @@ server.route({
 
 server.route({
     method: 'GET',
-    path: '/sets/{id}',
+    path: '/sets/{set_id}',
     config: {
         handler: function (request, reply) {
-            let id = encodeURIComponent(request.params.id);
+            let setID = encodeURIComponent(request.params.set_id);
 
-            request.pg.client.query(sets.setsByIdSQL, [id], function(err, result) {
+            request.pg.client.query(sets.setsByIdSQL, [setID], function(err, result) {
                 if(err) {
                     console.log(err);
                 } else {
@@ -161,7 +161,7 @@ server.route({
         tags: ['api', 'sets'],
         validate: {
             params: {
-                id : Joi.number()
+                set_id : Joi.number()
                     .required()
                     .description('the uid for set'),
             }
@@ -227,12 +227,12 @@ server.route({
 
 server.route({
     method: 'GET',
-    path: '/players/{id}',
+    path: '/players/{player_id}',
     config: {
         handler: function (request, reply) {
-            const id = encodeURIComponent(request.params.id);
+            const playerID = encodeURIComponent(request.params.player_id);
 
-            request.pg.client.query(players.getPlayerByIdSQL, [id], function(err, result) {
+            request.pg.client.query(players.getPlayerByIdSQL, [playerID], function(err, result) {
                 if(err) {
                     console.log(err);
                 } else {
@@ -251,7 +251,7 @@ server.route({
         tags: ['api', 'players'],
         validate: {
             params: Joi.object({
-                id : Joi.number()
+                player_id : Joi.number()
                     .required()
                     .description('The uid for the player'),
             })
@@ -261,12 +261,12 @@ server.route({
 
 server.route({
     method: 'DELETE',
-    path: '/players/{id}',
+    path: '/players/{player_id}',
     config: {
         handler: function (request, reply) {
-            const id = encodeURIComponent(request.params.id);
+            const playerID = encodeURIComponent(request.params.player_id);
 
-            request.pg.client.query(players.deletePlayerSQL, [id], function(err, result) {
+            request.pg.client.query(players.deletePlayerSQL, [playerID], function(err, _) {
                 if(err) {
                     console.log(err);
                 } else {
@@ -279,7 +279,7 @@ server.route({
         tags: ['api', 'players'],
         validate: {
             params: Joi.object({
-                id : Joi.number()
+                player_id : Joi.number()
                     .required()
                     .description('The uid for the player'),
             })
@@ -291,13 +291,13 @@ server.route({
 //Will need to refactor later for when taking in a payload from the frontend
 server.route({
     method: 'PUT',
-    path: '/players/{id}',
+    path: '/players/{player_id}',
     config: {
         handler: function (request, reply) {
             const name = encodeURIComponent(request.payload.name);
-            const id = encodeURIComponent(request.params.id)
+            const playerID = encodeURIComponent(request.params.player_id);
 
-            request.pg.client.query(players.updatePlayerNameSQL, [name, id], function(err, _) {
+            request.pg.client.query(players.updatePlayerNameSQL, [name, playerID], function(err, _) {
                 if(err) {
                     console.log(err);
                 } else {
@@ -310,7 +310,7 @@ server.route({
         tags: ['api', 'players'],
         validate: {
             params: Joi.object({
-                id: Joi.number()
+                player_id: Joi.number()
                     .required()
                     .description('The uid for the player')
             }),
@@ -324,9 +324,9 @@ server.route({
 });
 
 const getPlayersDecks = (request, reply) => {
-    const id = encodeURIComponent(request.params.id);
+    const playerID = encodeURIComponent(request.params.player_id);
 
-    request.pg.client.query(players.getPlayersDecksSQL, [id], function(err, result) {
+    request.pg.client.query(players.getPlayersDecksSQL, [playerID], function(err, result) {
         if(err) {
             console.log(err);
         } else {
@@ -343,7 +343,7 @@ const getPlayersDecks = (request, reply) => {
 
 server.route({
     method: 'GET',
-    path: '/players/{id}/deck',
+    path: '/players/{player_id}/deck',
     config: {
         handler: getPlayersDecks,
         description: 'Get all decks associated with a single player',
@@ -361,18 +361,18 @@ server.route({
 
 server.route({
     method: 'POST',
-    path: '/players/{id}/deck',
+    path: '/players/{player_id}/deck',
     config: {
         handler: function (request, reply) {
 
             // Need to handle the escaped characters for the deckName....
-            const id = encodeURIComponent(request.params.id);
+            const playerID = encodeURIComponent(request.params.player_id);
             const deckName = encodeURIComponent(request.payload.deckName);
             const cardIDs = request.payload.card_ids;
 
             console.log('cardIds for POST,',  cardIDs);
 
-            request.pg.client.query(players.addNewPlayerDeckSQL, [id, deckName, cardIDs], function(err, _) {
+            request.pg.client.query(players.addNewPlayerDeckSQL, [playerID, deckName, cardIDs], function(err, _) {
                 if(err) {
                     console.log(err);
                 } else {
@@ -385,7 +385,7 @@ server.route({
         tags: ['api', 'players'],
         validate: {
             params: Joi.object({
-                id: Joi.number()
+                player_id: Joi.number()
                     .required()
                     .description('The uid for the player')
             }),
