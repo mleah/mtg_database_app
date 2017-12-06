@@ -322,27 +322,29 @@ server.route({
     }
 });
 
+const getPlayersDecks = (request, reply) => {
+    const id = encodeURIComponent(request.params.id);
+
+    request.pg.client.query(players.getPlayersDecksSQL, [id], function(err, result) {
+        if(err) {
+            console.log(err);
+        } else {
+            const decks = result.rows.map( (deck) => {
+                return {
+                    deck_name: deck.deck_name,
+                    deck_id: deck.deck_id
+                }
+            });
+            reply({ 'decks' : decks });
+        }
+    });
+};
+
 server.route({
     method: 'GET',
     path: '/players/{id}/deck',
     config: {
-        handler: function (request, reply) {
-            const id = encodeURIComponent(request.params.id);
-
-            request.pg.client.query(players.getPlayersDecksSQL, [id], function(err, result) {
-                if(err) {
-                    console.log(err);
-                } else {
-                    const decks = result.rows.map( (deck) => {
-                        return {
-                            deck_name: deck.deck_name,
-                            deck_id: deck.deck_id
-                        }
-                    });
-                    reply({ 'decks' : decks });
-                }
-            });
-        },
+        handler: getPlayersDecks,
         description: 'Get all decks associated with a single player',
         notes: 'Returns a list of decks associated with a single player by player id',
         tags: ['api', 'players'],
@@ -367,11 +369,13 @@ server.route({
             const deckName = encodeURIComponent(request.payload.deckName);
             const cardIDs = request.payload.card_ids;
 
+            console.log('cardIds for POST,',  cardIDs);
+
             request.pg.client.query(players.addNewPlayerDeckSQL, [id, deckName, cardIDs], function(err, _) {
                 if(err) {
                     console.log(err);
                 } else {
-                    reply(`Here's the id, deckName, cards passed in: ${id}   ${deckName}   ${cardIDs}`)
+                    getPlayersDecks(request, reply);
                 }
             });
         },
@@ -405,30 +409,32 @@ server.route({
             const id = encodeURIComponent(request.params.id);
             const deckID = encodeURIComponent(request.params.deck_id);
             const deckName = encodeURIComponent(request.payload.deckName);
-            const cardIDs = encodeURIComponent(request.payload.card_ids);
+            const cardIDs = request.payload.card_ids;
 
-
-            request.pg.client.query(``, [id], function(err, _) {
+            request.pg.client.query(players.updatePlayerDeckSQL, [id, deckID, deckName, cardIDs], function(err, _) {
                 if(err) {
                     console.log(err);
                 } else {
-                    reply(`Here's the id, deckName, cards passed in: ${id} ${deckName} ${cardIDs} ${deckID}`)
+                    getPlayersDecks(request, reply);
                 }
             });
         },
-        description: 'IN PROGRESS Update a deck for a single player',
+        description: 'Update a deck for a single player',
         notes: 'Creates a new deck for a single player by id',
         tags: ['api', 'players'],
         validate: {
             params: Joi.object({
                 id: Joi.number()
                     .required()
-                    .description('The uid for the player')
+                    .description('The uid for the player'),
+                deck_id: Joi.number()
+                    .required()
+                    .description('THe uid for the deck')
             }),
             payload: Joi.object({
                 deckName : Joi.string()
                     .description('The updated name for the deck'),
-                cards_ids : Joi.array()
+                card_ids : Joi.array()
                     .description('An array of card ids in the deck')
             })
         }
@@ -443,15 +449,15 @@ server.route({
             const id = encodeURIComponent(request.params.id);
             const deckID = encodeURIComponent(request.params.deck_id);
 
-            request.pg.client.query(``, [id], function(err, _) {
+            request.pg.client.query(players.deletePlayerDeckSQL, [id, deckID], function(err, _) {
                 if(err) {
                     console.log(err);
                 } else {
-                    reply(`Here's the id, deckid: ${id} ${deckID}`)
+                    getPlayersDecks(request, reply);
                 }
             });
         },
-        description: 'IN PROGRESS Delete a deck for a player',
+        description: 'Delete a deck for a player',
         notes: 'Deletes a deck for a single player by id',
         tags: ['api','players'],
         validate: {

@@ -47,6 +47,42 @@ const addNewPlayerDeckSQL = `
     FROM deck_insert di;    
 `;
 
+const deletePlayerDeckSQL = `
+    DELETE FROM decks
+    WHERE deck_id IN (
+        SELECT DISTINCT deck_id
+        FROM players_decks_xref
+        WHERE player_id = $1
+        AND deck_id = $2
+    )
+`;
+
+
+const updatePlayerDeckSQL = `
+    WITH cards_decks_deletion AS (
+      DELETE FROM cards_decks_xref
+      WHERE deck_id IN (
+        SELECT DISTINCT deck_id
+        FROM players_decks_xref
+        WHERE player_id = $1
+              AND deck_id = $2
+      )
+    ),
+    update_decks AS (
+      UPDATE decks d
+      SET deck_name = $3
+      FROM players_decks_xref pdx
+      WHERE pdx.player_id = $1
+      AND pdx.deck_id = $2
+      AND pdx.deck_id = d.deck_id
+    )
+    INSERT INTO cards_decks_xref (deck_id, card_id)
+      SELECT pdx.deck_id, card_id
+      FROM players_decks_xref pdx, unnest($4::int[]) card_id
+      WHERE pdx.player_id = $1
+      AND pdx.deck_id = $2;`
+;
+
 module.exports = {
     getAllPlayersSQL,
     getPlayerByIdSQL,
@@ -54,5 +90,7 @@ module.exports = {
     updatePlayerNameSQL,
     deletePlayerSQL,
     getPlayersDecksSQL,
-    addNewPlayerDeckSQL
+    addNewPlayerDeckSQL,
+    deletePlayerDeckSQL,
+    updatePlayerDeckSQL
 };

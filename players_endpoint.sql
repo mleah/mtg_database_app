@@ -30,3 +30,61 @@ SELECT
   1,
   di.decks_deck_id
 FROM deck_insert di;
+
+
+--Delete deck for a player
+DELETE FROM decks
+    WHERE deck_id IN (
+        SELECT DISTINCT deck_id
+        FROM players_decks_xref
+        WHERE player_id = $1
+        AND deck_id = $2
+    )
+
+
+--Update deck for a player
+BEGIN;
+DELETE FROM cards_decks_xref
+  WHERE deck_id IN (
+      SELECT DISTINCT deck_id
+      FROM players_decks_xref
+      WHERE player_id = 1
+      AND deck_id = 3
+  );
+UPDATE decks d
+  SET deck_name = 'HIYA'
+  FROM players_decks_xref pdx
+  WHERE pdx.player_id = 1
+  AND pdx.deck_id = 3
+  AND pdx.deck_id = d.deck_id;
+INSERT INTO cards_decks_xref (deck_id, card_id)
+  SELECT pdx.deck_id, card_id
+  FROM players_decks_xref pdx, unnest(ARRAY[1,1,1,1,1,1]::int[]) card_id
+  WHERE pdx.player_id = 1
+  AND pdx.deck_id = 3 ;
+COMMIT;
+
+--Same as above, but as CTE this time
+
+WITH cards_decks_deletion AS (
+  DELETE FROM cards_decks_xref
+  WHERE deck_id IN (
+    SELECT DISTINCT deck_id
+    FROM players_decks_xref
+    WHERE player_id = 1
+          AND deck_id = 3
+  )
+),
+update_decks AS (
+  UPDATE decks d
+  SET deck_name = 'Lets test this'
+  FROM players_decks_xref pdx
+  WHERE pdx.player_id = 1
+  AND pdx.deck_id = 3
+  AND pdx.deck_id = d.deck_id
+)
+INSERT INTO cards_decks_xref (deck_id, card_id)
+  SELECT pdx.deck_id, card_id
+  FROM players_decks_xref pdx, unnest(ARRAY[2,2,2,2,2,2,2]::int[]) card_id
+  WHERE pdx.player_id = 1
+  AND pdx.deck_id = 3;
