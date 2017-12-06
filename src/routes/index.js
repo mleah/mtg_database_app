@@ -11,6 +11,7 @@ const databaseSecret  = require('./secret.js');
 const cards = require("../controllers/cardsController.js");
 const sets = require("../controllers/setsController.js");
 const players = require("../controllers/playersController");
+const decks = require("../controllers/decksController");
 
 server.connection({ port: 9001, host: 'localhost' });
 
@@ -403,15 +404,15 @@ server.route({
 
 server.route({
     method: 'PUT',
-    path: '/players/{id}/deck/{deck_id}',
+    path: '/players/{player_id}/deck/{deck_id}',
     config: {
         handler: function (request, reply) {
-            const id = encodeURIComponent(request.params.id);
+            const playerID = encodeURIComponent(request.params.player_id);
             const deckID = encodeURIComponent(request.params.deck_id);
             const deckName = encodeURIComponent(request.payload.deckName);
             const cardIDs = request.payload.card_ids;
 
-            request.pg.client.query(players.updatePlayerDeckSQL, [id, deckID, deckName, cardIDs], function(err, _) {
+            request.pg.client.query(players.updatePlayerDeckSQL, [playerID, deckID, deckName, cardIDs], function(err, _) {
                 if(err) {
                     console.log(err);
                 } else {
@@ -424,7 +425,7 @@ server.route({
         tags: ['api', 'players'],
         validate: {
             params: Joi.object({
-                id: Joi.number()
+                player_id: Joi.number()
                     .required()
                     .description('The uid for the player'),
                 deck_id: Joi.number()
@@ -443,13 +444,13 @@ server.route({
 
 server.route({
     method: 'DELETE',
-    path: '/players/{id}/deck/{deck_id}',
+    path: '/players/{player_id}/deck/{deck_id}',
     config: {
         handler: function (request, reply) {
-            const id = encodeURIComponent(request.params.id);
+            const playerID = encodeURIComponent(request.params.player_id);
             const deckID = encodeURIComponent(request.params.deck_id);
 
-            request.pg.client.query(players.deletePlayerDeckSQL, [id, deckID], function(err, _) {
+            request.pg.client.query(players.deletePlayerDeckSQL, [playerID, deckID], function(err, _) {
                 if(err) {
                     console.log(err);
                 } else {
@@ -462,9 +463,71 @@ server.route({
         tags: ['api','players'],
         validate: {
             params: Joi.object({
-                id: Joi.number()
+                player_id: Joi.number()
                     .required()
                     .description('The uid for the player'),
+                deck_id:  Joi.number()
+                    .required()
+                    .description('The uid for the deck'),
+            })
+        }
+    }
+});
+
+
+server.route({
+    method: 'GET',
+    path: '/decks',
+    config: {
+        handler: function (request, reply) {
+            request.pg.client.query(decks.getAllDecksSQL, [], function(err, result) {
+                if(err) {
+                    console.log(err);
+                } else {
+                    const decks = result.rows.map( (deck) => {
+                        return {
+                            deck_name: deck.deck_name,
+                            deck_id: deck.deck_id,
+                            cards: deck.cards
+                        }
+                    });
+                    reply({ 'decks' : decks });
+                }
+            });
+        },
+        description: 'Get all decks',
+        notes: 'Returns all decks with the card_ids for all their cards',
+        tags: ['api', 'decks']
+    }
+});
+
+
+server.route({
+    method: 'GET',
+    path: '/decks/{deck_id}',
+    config: {
+        handler: function (request, reply) {
+            const deck_id = encodeURIComponent(request.params.deck_id);
+            request.pg.client.query(decks.getDeckSQL, [deck_id], function(err, result) {
+                if(err) {
+                    console.log(err);
+                } else {
+                    const deck = result.rows.map( (deck) => {
+                        return {
+                            deck_name: deck.deck_name,
+                            deck_id: deck.deck_id,
+                            cards: deck.cards
+                        }
+                    });
+                    reply({ 'deck' : deck });
+                }
+            });
+        },
+        description: 'Get a deck by deck_id',
+        notes: 'Returns the deck and includes the card_ids for all cards',
+        tags: ['api', 'decks'],
+        validate: {
+            params: Joi.object({
                 deck_id:  Joi.number()
                     .required()
                     .description('The uid for the deck'),
